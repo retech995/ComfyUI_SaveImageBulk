@@ -3,6 +3,8 @@ import re
 import folder_paths
 import json
 import hashlib
+import openai
+
 
 class SaveTextFlorence:
     @classmethod
@@ -17,7 +19,11 @@ class SaveTextFlorence:
                 "image_style": ("STRING", {"default": ""}),
                 "gender_age_replacement": ("STRING", {"default": ""}),
                 "lora_trigger": ("STRING", {"default": ""}),
-                "negative_prompt_text": ("STRING", {"multiline": True, "default": ""})
+                "negative_prompt_text": ("STRING", {"multiline": True, "default": ""}),
+                "enable_ChatGpt": ("BOOLEAN", {
+                    "default": False, "label_on": "Yes", "label_off": "No"
+                }),
+                "chatgpt_instruction_text": ("STRING", {"multiline": True, "default": ""}),
             }
         }
 
@@ -34,10 +40,34 @@ class SaveTextFlorence:
     # Class variable to store the last inputs and outputs
     _cache = {}
     
-    def write_text(self, text, file, enable_replacement, image_style, gender_age_replacement, lora_trigger, negative_prompt_text):
+    def write_text(self, text, file, enable_replacement, image_style, gender_age_replacement, lora_trigger, negative_prompt_text, chatgpt_instruction_text,enable_ChatGpt):
         # Handle case where inputs are not lists
+        print("checkHERE")
+        print(enable_ChatGpt)
         if not isinstance(text, list):
+           # text =  text.strip().strip("[]")
             text = [text]
+        if isinstance(text, list):
+            if len(text)==1:
+                innercontent=text[0]
+                if isinstance(innercontent, list):
+                    text=innercontent
+        if isinstance(chatgpt_instruction_text, list):
+
+            if len(chatgpt_instruction_text)==1:
+                innerchatgpt_instruction_text=chatgpt_instruction_text[0]
+                if not isinstance(innerchatgpt_instruction_text, list):
+                    chatgpt_instruction_text=innerchatgpt_instruction_text 
+                    print("getting here")
+                    print(innerchatgpt_instruction_text)
+
+        if isinstance(enable_ChatGpt, list):
+
+            if len(enable_ChatGpt)==1:
+                innerenable_ChatGpt=enable_ChatGpt[0]
+                if not isinstance(innerenable_ChatGpt, list):
+                    enable_ChatGpt=innerenable_ChatGpt                    
+            
         if not isinstance(file, list):
             file = [file] * len(text)
         if not isinstance(enable_replacement, list):
@@ -84,22 +114,25 @@ class SaveTextFlorence:
             return SaveTextFlorence._cache[cache_key]
         
         processed_texts = []
-        full_path = folder_paths.get_output_directory()
-        
+        full_path = folder_paths.get_output_directory()    
         for i in range(max_length):
             current_text = text[i]
             
+
             # Process the text only if enable_replacement is True
             if enable_replacement[i]:
                 processed_text = self.process_text(
                     current_text, 
                     image_style[i], 
                     gender_age_replacement[i], 
-                    lora_trigger[i]
+                    lora_trigger[i],
+                    chatgpt_instruction_text,
+                    enable_ChatGpt
                 )
             else:
                 processed_text = current_text
-                
+
+            
             processed_texts.append(processed_text)
             
             # Write to file
@@ -125,6 +158,36 @@ class SaveTextFlorence:
         input_json = json.dumps(input_data, sort_keys=True)
         return hashlib.md5(input_json.encode()).hexdigest()
 
+    def _update_prompt_chatgpt(self, prompt,chatgpt_instruction_text):
+            # Set your OpenAI API key
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # or use `os.getenv("OPENAI_API_KEY")`
+            
+        original_prompt = prompt
+            
+        instruction = (
+                "You are an AI prompt editor. Given an image prompt, update it by:\n"
+                
+                "1. Enhancing the prompt to generate a high-quality, natural, realistic image.\n"
+                "2. Add visual clarity, lighting, and environment details where needed.\n"
+                "3. Make the language flow naturally and sound like a professional image generation prompt.\n"
+                "4. Do not add technical instructions or explain your changes.\n"
+                "5. Return ONLY the updated prompt, no extra commentary or headers."
+               + chatgpt_instruction_text
+            )
+            
+        response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an image prompt editor. Only return the final prompt with no extra text."},
+                    {"role": "user", "content": instruction + "\n\n" + original_prompt}
+                ],
+                temperature=0.7
+            )
+            
+        new_prompt = response.choices[0].message.content.strip()
+        return new_prompt
+        
+
     def _extend_list(self, lst, target_length):
         """Helper method to extend a list to the target length by repeating the last element"""
         if len(lst) < target_length:
@@ -132,8 +195,11 @@ class SaveTextFlorence:
             lst.extend([last_element] * (target_length - len(lst)))
         return lst
     
-    def process_text(self, text, image_style, gender_age_replacement, lora_trigger):
+    def process_text(self, text, image_style, gender_age_replacement, lora_trigger,chatgpt_instruction_text,enable_ChatGpt):
         # Replace "The image is" or "The image shows"
+        print("HELLO"+text)
+        print("HELLO2--"+chatgpt_instruction_text)
+        
         if image_style:
             text = re.sub(r"^(The image is|The image shows)\s+", f"{image_style} ", text)
 
@@ -147,6 +213,11 @@ class SaveTextFlorence:
                 text = re.sub(pattern, gender_age_replacement, text)
 
         # Add LoRA trigger word at the beginning
+        
+        if enable_ChatGpt:
+            print("gpt enabled....")
+            text=self._update_prompt_chatgpt(text,chatgpt_instruction_text)
+        
         if lora_trigger:
             text = f"{lora_trigger.strip()} {text}"
 
