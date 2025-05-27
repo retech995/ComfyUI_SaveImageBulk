@@ -24,6 +24,7 @@ class SaveTextFlorence:
                     "default": False, "label_on": "Yes", "label_off": "No"
                 }),
                 "chatgpt_instruction_text": ("STRING", {"multiline": True, "default": ""}),
+                "chatgptapikey": ("STRING", {"multiline": True, "default": "your chatgpt api key"}),
             }
         }
 
@@ -40,7 +41,7 @@ class SaveTextFlorence:
     # Class variable to store the last inputs and outputs
     _cache = {}
     
-    def write_text(self, text, file, enable_replacement, image_style, gender_age_replacement, lora_trigger, negative_prompt_text, chatgpt_instruction_text,enable_ChatGpt):
+    def write_text(self, text, chatgptapikey, file, enable_replacement, image_style, gender_age_replacement, lora_trigger, negative_prompt_text, chatgpt_instruction_text,enable_ChatGpt):
         # Handle case where inputs are not lists
         print("checkHERE")
         print(enable_ChatGpt)
@@ -127,7 +128,8 @@ class SaveTextFlorence:
                     gender_age_replacement[i], 
                     lora_trigger[i],
                     chatgpt_instruction_text,
-                    enable_ChatGpt
+                    enable_ChatGpt,
+                    chatgptapikey
                 )
             else:
                 processed_text = current_text
@@ -158,9 +160,9 @@ class SaveTextFlorence:
         input_json = json.dumps(input_data, sort_keys=True)
         return hashlib.md5(input_json.encode()).hexdigest()
 
-    def _update_prompt_chatgpt(self, prompt,chatgpt_instruction_text):
+    def _update_prompt_chatgpt(self, prompt,chatgpt_instruction_text, chatgptapikey):
             # Set your OpenAI API key
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # or use `os.getenv("OPENAI_API_KEY")`
+        client = openai.OpenAI(chatgptapikey)  # or use `os.getenv("OPENAI_API_KEY")`
             
         original_prompt = prompt
             
@@ -195,7 +197,7 @@ class SaveTextFlorence:
             lst.extend([last_element] * (target_length - len(lst)))
         return lst
     
-    def process_text(self, text, image_style, gender_age_replacement, lora_trigger,chatgpt_instruction_text,enable_ChatGpt):
+    def process_text(self, text, image_style, gender_age_replacement, lora_trigger,chatgpt_instruction_text,enable_ChatGpt,chatgptapikey):
         # Replace "The image is" or "The image shows"
         print("HELLO"+text)
         print("HELLO2--"+chatgpt_instruction_text)
@@ -216,7 +218,7 @@ class SaveTextFlorence:
         
         if enable_ChatGpt:
             print("gpt enabled....")
-            text=self._update_prompt_chatgpt(text,chatgpt_instruction_text)
+            text=self._update_prompt_chatgpt(text,chatgpt_instruction_text,chatgptapikey)
         
         if lora_trigger:
             text = f"{lora_trigger.strip()} {text}"
