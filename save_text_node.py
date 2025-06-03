@@ -67,7 +67,14 @@ class SaveTextFlorence:
             if len(enable_ChatGpt)==1:
                 innerenable_ChatGpt=enable_ChatGpt[0]
                 if not isinstance(innerenable_ChatGpt, list):
-                    enable_ChatGpt=innerenable_ChatGpt                    
+                    enable_ChatGpt=innerenable_ChatGpt    
+
+        if isinstance(chatgptapikey, list):
+            print("CHECK chatgptapikey here")
+            if len(chatgptapikey)==1:
+                inner_chatgptapikey=chatgptapikey[0]
+ 
+                    
             
         if not isinstance(file, list):
             file = [file] * len(text)
@@ -129,7 +136,7 @@ class SaveTextFlorence:
                     lora_trigger[i],
                     chatgpt_instruction_text,
                     enable_ChatGpt,
-                    chatgptapikey
+                    inner_chatgptapikey
                 )
             else:
                 processed_text = current_text
@@ -160,9 +167,10 @@ class SaveTextFlorence:
         input_json = json.dumps(input_data, sort_keys=True)
         return hashlib.md5(input_json.encode()).hexdigest()
 
-    def _update_prompt_chatgpt(self, prompt,chatgpt_instruction_text, chatgptapikey):
+    def _update_prompt_chatgpt(self, prompt,chatgpt_instruction_text, inner_chatgptapikey):
             # Set your OpenAI API key
-        client = openai.OpenAI(chatgptapikey)  # or use `os.getenv("OPENAI_API_KEY")`
+
+        client = openai.OpenAI(api_key=inner_chatgptapikey)  # or use `os.getenv("OPENAI_API_KEY")`
             
         original_prompt = prompt
             
@@ -197,7 +205,7 @@ class SaveTextFlorence:
             lst.extend([last_element] * (target_length - len(lst)))
         return lst
     
-    def process_text(self, text, image_style, gender_age_replacement, lora_trigger,chatgpt_instruction_text,enable_ChatGpt,chatgptapikey):
+    def process_text(self, text, image_style, gender_age_replacement, lora_trigger,chatgpt_instruction_text,enable_ChatGpt,inner_chatgptapikey):
         # Replace "The image is" or "The image shows"
         print("HELLO"+text)
         print("HELLO2--"+chatgpt_instruction_text)
@@ -218,7 +226,7 @@ class SaveTextFlorence:
         
         if enable_ChatGpt:
             print("gpt enabled....")
-            text=self._update_prompt_chatgpt(text,chatgpt_instruction_text,chatgptapikey)
+            text=self._update_prompt_chatgpt(text,chatgpt_instruction_text,inner_chatgptapikey)
         
         if lora_trigger:
             text = f"{lora_trigger.strip()} {text}"
